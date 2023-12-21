@@ -1,0 +1,137 @@
+openapi: 3.0.3
+info:
+  title: Mobile Backgrounds API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /images:
+    post:
+      summary: Upload an image and its metadata
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                metadata:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                      value:
+                        type: string
+      responses:
+        '201':
+          description: Image and metadata uploaded successfully
+    get:
+      summary: List all images and their metadata
+      responses:
+        '200':
+          description: List of images and metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    image:
+                      type: string
+                      format: binary
+                    metadata:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          value:
+                            type: string
+  /images/{id}:
+    get:
+      summary: Retrieve an image and its metadata by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the image to retrieve
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Image and metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  image:
+                    type: string
+                    format: binary
+                  metadata:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        value:
+                          type: string
+  /devices:
+    post:
+      summary: Register a device and receive an API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_id:
+                  type: string
+      responses:
+        '201':
+          description: Device registered successfully
+          headers:
+            api_key:
+              description: API key for the registered device
+              schema:
+                type: string
+  /devices/{device_id}:
+    get:
+      summary: Retrieve the API key for a registered device
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: ID of the device to retrieve the API key for
+          schema:
+            type: string
+      responses:
+        '200':
+          description: API key retrieved successfully
+          headers:
+            api_key:
+              description: API key for the registered device
+              schema:
+                type: string
+security:
+  - basicAuth: []
+  - api_key: []
+components:
+  securitySchemes:
+    api_key:
+      type: apiKey
+      name: api_key
+      in: header
