@@ -2,19 +2,41 @@ from contextlib import asynccontextmanager
 from typing import List, Optional, Dict
 
 import sqlalchemy.types
+import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import json
 from sqlalchemy import Column
 from sqlmodel import create_engine, Session, SQLModel, Field, select
-
-app = FastAPI()
-
-security = HTTPBasic()
+import logging
 
 sqlite_file_name = "mobile_backgrounds.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 engine = create_engine(sqlite_url, echo=True)
+
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Startup event")
+    try:
+        create_db_and_tables()
+        yield
+    finally:
+        print("Shutdown event")
+
+
+app = FastAPI(lifespan=lifespan)
+logger = logging.getLogger(__name__)
+log_config = uvicorn.config.LOGGING_CONFIG
+log_config["formatters"]["access"]["fmt"] = "%(asctime)s - %(levelname)s - %(message)s"
+log_config["formatters"]["default"]["fmt"] = "%(asctime)s - %(levelname)s - %(message)s"
+uvicorn.run(app, log_config=log_config)
+
+security = HTTPBasic()
 
 
 class Device(SQLModel, table=True):
@@ -34,34 +56,9 @@ class ListType(sqlalchemy.types.TypeDecorator):
 
 
 class Image(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    image_id: Optional[int] = Field(default=None, primary_key=True)
     image: bytes
     image_metadata: List[Dict[str, str]] = Field(sa_column=Column(ListType))
-
-
-def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("Startup event")
-    try:
-        yield
-    finally:
-        print("Shutdown event")
-
-
-@app.on_event("startup")
-async def startup_event():
-    async with lifespan(app):
-        create_db_and_tables()
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    async with lifespan(app):
-        pass
 
 
 def get_db():
@@ -97,17 +94,6 @@ def list_devices(db: Session = Depends(get_db), credentials: HTTPBasicCredential
     return devices
 
 
-@app.post("/images", response_model=Image)
-def upload_image(image: bytes, metadata: List[dict], db: Session = Depends(get_db),
-                 credentials: HTTPBasicCredentials = Depends(security)):
-    authenticate_user(db, credentials)
-    image = Image(image=image, metadata=metadata)
-    db.add(image)
-    db.commit()
-    db.refresh(image)
-    return image
-
-
 @app.get("/images", response_model=List[Image])
 def list_images(db: Session = Depends(get_db), credentials: HTTPBasicCredentials = Depends(security)):
     authenticate_user(db, credentials)
@@ -116,9 +102,9 @@ def list_images(db: Session = Depends(get_db), credentials: HTTPBasicCredentials
 
 
 @app.get("/images/{id}", response_model=Image)
-def get_image(id: int, db: Session = Depends(get_db), credentials: HTTPBasicCredentials = Depends(security)):
+def get_image(image_id: int, db: Session = Depends(get_db), credentials: HTTPBasicCredentials = Depends(security)):
     authenticate_user(db, credentials)
-    image = db.exec(select(Image).where(Image.id == id)).first()
+    image = db.exec(select(Image).where(Image.image_id == image_id)).first()
     if not image:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
     return image
