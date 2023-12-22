@@ -3,33 +3,9 @@ info:
   title: Mobile Backgrounds API
   version: 1.0.0
 servers:
-  - url: https://api.example.com/v1
+  - url: https://api.fantasyforge.nl/v1
 paths:
   /images:
-    post:
-      summary: Upload an image and its metadata
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                image:
-                  type: string
-                  format: binary
-                metadata:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      key:
-                        type: string
-                      value:
-                        type: string
-      responses:
-        '201':
-          description: Image and metadata uploaded successfully
     get:
       summary: List all images and their metadata
       responses:
