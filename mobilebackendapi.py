@@ -4,9 +4,10 @@ from typing import List, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.openapi.utils import get_openapi
 from fastapi.params import Depends
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from pydantic import json, BaseModel
+from pydantic import json
 from sqlmodel import create_engine, Session, SQLModel, Field
 from starlette import status
 from starlette.responses import FileResponse
@@ -30,14 +31,44 @@ async def app_lifespan(app: FastAPI):
         print("Shutdown event")
 
 
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str
+    password: str
+    role: str
+
+
+class Device(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    user_id: int
+
+
+class ApiKey(SQLModel):
+    api_key: str
+
+
+class ImageMetadata(SQLModel):
+    imgmetadata: dict
+
+
+class Image(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    metadata_id: int
+    file_path: str
+
+
+class ImageWithMetadata(SQLModel):
+    id: int
+    imgmetadata: dict
+
+
 app = FastAPI(lifespan=app_lifespan, description="Image Management API", version="0.1.0")
 logger = logging.getLogger(__name__)
 log_config = uvicorn.config.LOGGING_CONFIG
 log_config["formatters"]["access"]["fmt"] = "%(asctime)s - %(levelname)s - %(message)s"
 log_config["formatters"]["default"]["fmt"] = "%(asctime)s - %(levelname)s - %(message)s"
-
 uvicorn.run(app, log_config=log_config)
-
 security = HTTPBasic()
 
 
@@ -47,40 +78,9 @@ def authenticate_user(session: Session, credentials: HTTPBasicCredentials):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
 
-class User(BaseModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    username: str
-    password: str
-    role: str
-
-
-class Device(BaseModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str
-    user_id: int
-
-
-class ApiKey(BaseModel):
-    api_key: str
-
-
-class ImageMetadata(BaseModel):
-    metadata: dict
-
-
-class Image(BaseModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    metadata_id: int
-    file_path: str
-
-
-class ImageWithMetadata(BaseModel):
-    id: int
-    metadata: dict
-
-
 @app.post("/users", response_model=User)
 def create_user(user: User, session: Session = Session(engine), credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Create user')
     authenticate_user(session, credentials)
     session.add(user)
     session.commit()
@@ -90,6 +90,7 @@ def create_user(user: User, session: Session = Session(engine), credentials: HTT
 
 @app.get("/users", response_model=List[User])
 def read_users(session: Session = Session(engine), credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Read users')
     authenticate_user(session, credentials)
     users = session.query(User).all()
     return users
@@ -97,6 +98,7 @@ def read_users(session: Session = Session(engine), credentials: HTTPBasicCredent
 
 @app.get("/users/{user_id}", response_model=User)
 def read_user(user_id: int, session: Session = Session(engine), credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Read user')
     authenticate_user(session, credentials)
     user = (session.query(User).filter(User.id == user_id).first())
     if not user:
@@ -107,6 +109,7 @@ def read_user(user_id: int, session: Session = Session(engine), credentials: HTT
 @app.get("/users/name/{username}", response_model=User)
 def read_user_by_name(username: str, session: Session = Session(engine),
                       credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Get user by name')
     authenticate_user(session, credentials)
     user = session.query(User).filter(User.username == username).first()
     if not user:
@@ -117,6 +120,7 @@ def read_user_by_name(username: str, session: Session = Session(engine),
 @app.put("/users/{user_id}", response_model=User)
 def update_user(user_id: int, user: User, session: Session = Session(engine),
                 credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Update user')
     authenticate_user(session, credentials)
     db_user = session.query(User).filter(User.id == user_id).first()
     if not db_user:
@@ -132,6 +136,7 @@ def update_user(user_id: int, user: User, session: Session = Session(engine),
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int, session: Session = Session(engine),
                 credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Delete user')
     authenticate_user(session, credentials)
     db_user = session.query(User).filter(User.id == user_id).first()
     if not db_user:
@@ -143,6 +148,7 @@ def delete_user(user_id: int, session: Session = Session(engine),
 @app.post("/devices", response_model=ApiKey)
 def register_device(device: Device, session: Session = Session(engine),
                     credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Register device')
     authenticate_user(session, credentials)
     session.add(device)
     session.commit()
@@ -153,12 +159,13 @@ def register_device(device: Device, session: Session = Session(engine),
 
 @app.get("/images", response_model=List[ImageWithMetadata])
 def read_images(session: Session = Session(engine), credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Read images')
     authenticate_user(session, credentials)
     images = session.query(Image).all()
     images_with_metadata = []
     for image in images:
         metadata = session.query(ImageMetadata).filter(ImageMetadata.id == image.metadata_id).first()
-        metadata_dict = json.loads(metadata.metadata)
+        metadata_dict = json.loads(metadata.imgmetadata)
         images_with_metadata.append(ImageWithMetadata(id=image.id, metadata=metadata_dict, file_path=image.file_path))
     return images_with_metadata
 
@@ -166,10 +173,13 @@ def read_images(session: Session = Session(engine), credentials: HTTPBasicCreden
 @app.get("/images/{image_id}")
 def read_image(image_id: int, session: Session = Session(engine),
                credentials: HTTPBasicCredentials = Depends(security)):
+    logger.info('Read image')
     authenticate_user(session, credentials)
     image = session.query(Image).filter(Image.id == image_id).first()
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
-    # metadata = session.query(ImageMetadata).filter(ImageMetadata.id == image.metadata_id).first()
-    # metadata_dict = json.loads(metadata.metadata)
+    imgmetadata = session.query(ImageMetadata).filter(ImageMetadata.id == image.metadata_id).first()
+    metadata_dict = json.loads(imgmetadata.imgmetadata)
     return FileResponse(image.file_path, media_type="image/png")
+
+uvicorn.run(app, log_config=log_config)
