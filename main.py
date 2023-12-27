@@ -1,7 +1,13 @@
+import json
 import logging
+import os
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
+from pathvalidate import sanitize_filename
+from fastapi.encoders import jsonable_encoder
+
 
 import crud
 import models
@@ -12,7 +18,7 @@ models.Base.metadata.create_all(bind=engine)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-
+image_path = 'images'
 
 # Dependency
 def get_db():
@@ -56,3 +62,32 @@ def create_device_for_user(
 def read_devices(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     items = crud.get_devices(db, skip=skip, limit=limit)
     return items
+
+
+@app.get("/image/{image_filename}")
+async def get_image(image_filename: str):
+    sanitized_filename = sanitize_filename(image_filename)
+    full_path_filename = os.path.join(image_path, sanitized_filename)
+    logger.info('Fetching image: %s', full_path_filename)
+    if os.path.isfile(full_path_filename):
+        return FileResponse(path=full_path_filename, filename=sanitized_filename, media_type='image/png')
+    else:
+        return HTTPException(status_code=404, detail="Image not found")
+
+
+def get_filelist(path: str):
+    f = []
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        f.extend(filenames)
+        break
+    return f
+
+
+@app.get("/image/")
+async def get_images():
+    files = get_filelist(image_path)
+    response_json = []
+    for filename in files:
+        file_json = {'filename': filename}
+        response_json.append(file_json)
+    return JSONResponse(content=response_json)
