@@ -21,11 +21,12 @@ class Device(DeviceBase):
 
 class UserBase(BaseModel):
     email: str
+    name: str
     role: str
 
 
 class UserCreate(UserBase):
-    password: str
+    hashed_password: str
 
 
 class User(UserBase):

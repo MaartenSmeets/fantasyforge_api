@@ -1,3 +1,4 @@
+import bcrypt
 from sqlalchemy.orm import Session
 
 import models
@@ -12,13 +13,33 @@ def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 
+def get_user_by_name(db: Session, name: str):
+    return db.query(models.User).filter(models.User.name == name).first()
+
+
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
 
+def get_hashed_password(plain_text_password):
+    # Hash a password for the first time
+    #   (Using bcrypt, the salt is saved into the hash itself)
+    return bcrypt.hashpw(plain_text_password, bcrypt.gensalt())
+
+
+def check_password(plain_text_password, hashed_password):
+    # Check hashed password. Using bcrypt, the salt is saved into the hash itself
+    return bcrypt.checkpw(plain_text_password, hashed_password)
+
+
+def validate_user(db: Session, username: str, password: str):
+    stored_password_hash = get_user_by_name(db, username).hashed_password
+    return check_password(password, stored_password_hash)
+
+
 def create_user(db: Session, user: schemas.UserCreate):
-    fake_hashed_password = user.password + "notreallyhashed"
-    db_user = models.User(email=user.email, hashed_password=fake_hashed_password)
+    hashed_password = get_hashed_password(user.password)
+    db_user = models.User(email=user.email, name=user.name, hashed_password=hashed_password, role=user.role)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
