@@ -35,19 +35,3 @@ class User(UserBase):
 
     class Config:
         orm_mode = True
-
-
-class ImageBase(BaseModel):
-    filename: str | None = None
-    metadata_filename: str | None = None
-
-
-class ImageCreate(ImageBase):
-    pass
-
-
-class Image(ImageBase):
-    id: int
-
-    class Config:
-        orm_mode = True
