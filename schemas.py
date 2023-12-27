@@ -1,17 +1,18 @@
 from pydantic import BaseModel
 
 
-class ItemBase(BaseModel):
+class DeviceBase(BaseModel):
     title: str
     description: str | None = None
 
 
-class ItemCreate(ItemBase):
+class DeviceCreate(DeviceBase):
     pass
 
 
-class Item(ItemBase):
+class Device(DeviceBase):
     id: int
+    apikey: str
     owner_id: int
 
     class Config:
@@ -20,6 +21,7 @@ class Item(ItemBase):
 
 class UserBase(BaseModel):
     email: str
+    role: str
 
 
 class UserCreate(UserBase):
@@ -29,7 +31,23 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
     is_active: bool
-    items: list[Item] = []
+    devices: list[Device] = []
+
+    class Config:
+        orm_mode = True
+
+
+class ImageBase(BaseModel):
+    filename: str | None = None
+    metadata_filename: str | None = None
+
+
+class ImageCreate(ImageBase):
+    pass
+
+
+class Image(ImageBase):
+    id: int
 
     class Config:
         orm_mode = True

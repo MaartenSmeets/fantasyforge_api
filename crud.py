@@ -25,12 +25,12 @@ def create_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 
-def get_items(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Item).offset(skip).limit(limit).all()
+def get_devices(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Device).offset(skip).limit(limit).all()
 
 
-def create_user_item(db: Session, item: schemas.ItemCreate, user_id: int):
-    db_item = models.Item(**item.model_dump(), owner_id=user_id)
+def create_user_device(db: Session, device: schemas.DeviceCreate, user_id: int):
+    db_item = models.Device(**device.model_dump(), owner_id=user_id)
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
