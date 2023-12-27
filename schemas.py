@@ -26,13 +26,14 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    hashed_password: str
+    password: str
 
 
 class User(UserBase):
     id: int
     is_active: bool
     devices: list[Device] = []
+    hashed_password: bytes
 
     class Config:
         orm_mode = True

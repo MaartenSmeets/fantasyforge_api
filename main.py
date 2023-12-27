@@ -1,13 +1,12 @@
-import json
 import logging
 import os
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.orm import Session
 from pathvalidate import sanitize_filename
-from fastapi.encoders import jsonable_encoder
-
 
 import crud
 import models
@@ -16,9 +15,10 @@ from database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 logger = logging.getLogger(__name__)
-
+security = HTTPBasic()
 app = FastAPI()
 image_path = 'images'
+
 
 # Dependency
 def get_db():
@@ -65,7 +65,10 @@ def read_devices(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
 
 
 @app.get("/image/{image_filename}")
-async def get_image(image_filename: str):
+async def get_image(image_filename: str, credentials: Annotated[HTTPBasicCredentials, Depends(security)], db: Session = Depends(get_db)):
+    if not crud.validate_user(db, credentials.username, credentials.password):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     sanitized_filename = sanitize_filename(image_filename)
     full_path_filename = os.path.join(image_path, sanitized_filename)
     logger.info('Fetching image: %s', full_path_filename)
@@ -84,7 +87,9 @@ def get_filelist(path: str):
 
 
 @app.get("/image/")
-async def get_images():
+async def get_images(credentials: Annotated[HTTPBasicCredentials, Depends(security)], db: Session = Depends(get_db)):
+    if not crud.validate_user(db, credentials.username, credentials.password, role='user'):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     files = get_filelist(image_path)
     response_json = []
     for filename in files:
