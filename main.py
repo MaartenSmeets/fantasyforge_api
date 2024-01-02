@@ -38,35 +38,58 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/users/", response_model=list[schemas.User])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_users(credentials: Annotated[HTTPBasicCredentials, Depends(security)], skip: int = 0, limit: int = 100,
+               db: Session = Depends(get_db)):
+    if not crud.validate_user(db, credentials.username, credentials.password, role='admin'):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     users = crud.get_users(db, skip=skip, limit=limit)
     return users
 
 
 @app.get("/users/{user_id}", response_model=schemas.User)
-def read_user(user_id: int, db: Session = Depends(get_db)):
-    db_user = crud.get_user(db, user_id=user_id)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+def read_user(credentials: Annotated[HTTPBasicCredentials, Depends(security)], user_id: int,
+              db: Session = Depends(get_db)):
+    db_user_id = crud.get_user(db, user_id=user_id)
+    db_user_name = crud.get_user_by_name(db, name=credentials.username)
+
+    if crud.validate_user(db, credentials.username, credentials.password, role='admin'):
+        if db_user_id is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        return db_user_id
+    elif crud.validate_user(db, credentials.username, credentials.password, role='user'):
+        if db_user_id is None or db_user_name is None:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        elif db_user_name.id == db_user_id.id:
+            return db_user_id
+        else:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 @app.post("/users/{user_id}/devices/", response_model=schemas.Device)
 def create_device_for_user(
-        user_id: int, device: schemas.DeviceCreate, db: Session = Depends(get_db)
+        credentials: Annotated[HTTPBasicCredentials, Depends(security)], user_id: int,
+        device: schemas.DeviceCreate, db: Session = Depends(get_db)
 ):
+    if not crud.validate_user(db, credentials.username, credentials.password, role='user'):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     return crud.create_user_device(db=db, device=device, user_id=user_id)
 
 
 @app.get("/devices/", response_model=list[schemas.Device])
-def read_devices(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    items = crud.get_devices(db, skip=skip, limit=limit)
-    return items
+def read_devices(credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+                 skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    if crud.validate_user(db, credentials.username, credentials.password, role='admin'):
+        items = crud.get_devices(db, skip=skip, limit=limit)
+        return items
+    raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 @app.get("/image/{image_filename}")
-async def get_image(image_filename: str, credentials: Annotated[HTTPBasicCredentials, Depends(security)], db: Session = Depends(get_db)):
-    if not crud.validate_user(db, credentials.username, credentials.password):
+async def get_image(image_filename: str, credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+                    db: Session = Depends(get_db)):
+    if not crud.validate_user(db, credentials.username, credentials.password, role='user'):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     sanitized_filename = sanitize_filename(image_filename)
