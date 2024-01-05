@@ -1,5 +1,13 @@
-import logging
+"""
+This module contains the main FastAPI application for the Fantasy Forge API.
+
+It includes endpoints for creating and retrieving users, creating devices for users,
+retrieving a list of devices, and retrieving images.
+
+The module also defines database models, schemas, and CRUD operations for interacting with the database.
+"""
 import os
+import logging
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -12,7 +20,7 @@ import crud
 import models
 import schemas
 from database import SessionLocal, engine
-import logging
+
 
 models.Base.metadata.create_all(bind=engine)
 logger = logging.getLogger(__name__)
@@ -21,7 +29,6 @@ app = FastAPI()
 image_path = 'images'
 
 
-# Dependency
 def get_db():
     """
     Get a database session.
@@ -65,7 +72,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @app.get("/users/", response_model=list[schemas.User])
 def get_users(credentials: Annotated[HTTPBasicCredentials, Depends(security)], skip: int = 0, limit: int = 100,
-               db: Session = Depends(get_db)):
+              db: Session = Depends(get_db)):
     """
     Read a list of users.
 
@@ -148,30 +155,6 @@ def create_device_for_user(
     return crud.create_user_device(db=db, device=device, user_id=user_id)
 
 
-def create_device_for_user(
-        credentials: Annotated[HTTPBasicCredentials, Depends(security)], user_id: int,
-        device: schemas.DeviceCreate, db: Session = Depends(get_db)
-):
-    """
-    Create a device for a user.
-
-    Args:
-        credentials (Annotated[HTTPBasicCredentials, Depends(security)]): The HTTP basic credentials.
-        user_id (int): The ID of the user.
-        device (schemas.DeviceCreate): The device data.
-        db (Session, optional): The database session. Defaults to Depends(get_db).
-
-    Returns:
-        schemas.Device: The created device.
-    """
-    logger.info('Creating device for user')
-    if not crud.validate_user(db, credentials.username, credentials.password, role='user'):
-        logger.warning('Unauthorized')
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    logger.info('Device created successfully')
-    return crud.create_user_device(db=db, device=device, user_id=user_id)
-
-
 @app.get("/devices/", response_model=list[schemas.Device])
 def read_devices(credentials: Annotated[HTTPBasicCredentials, Depends(security)],
                  skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -197,8 +180,8 @@ def read_devices(credentials: Annotated[HTTPBasicCredentials, Depends(security)]
 
 
 @app.get("/image/{image_filename}")
-async def get_image(image_filename: str, credentials: Annotated[HTTPBasicCredentials, Depends(security)],
-                    db: Session = Depends(get_db)):
+def get_image(image_filename: str, credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+              db: Session = Depends(get_db)):
     """
     Get an image by filename.
 
@@ -249,7 +232,7 @@ def get_filelist(path: str):
 
 
 @app.get("/image/")
-async def get_images(credentials: Annotated[HTTPBasicCredentials, Depends(security)], db: Session = Depends(get_db)):
+def get_images(credentials: Annotated[HTTPBasicCredentials, Depends(security)], db: Session = Depends(get_db)):
     """
     Get a list of images.
 
