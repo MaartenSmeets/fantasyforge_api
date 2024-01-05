@@ -26,7 +26,7 @@ models.Base.metadata.create_all(bind=engine)
 logger = logging.getLogger(__name__)
 security = HTTPBasic()
 app = FastAPI()
-image_path = 'images'
+IMAGE_PATH = 'images'
 
 
 def get_db():
@@ -199,7 +199,7 @@ def get_image(image_filename: str, credentials: Annotated[HTTPBasicCredentials, 
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     sanitized_filename = sanitize_filename(image_filename)
-    full_path_filename = os.path.join(image_path, sanitized_filename)
+    full_path_filename = os.path.join(IMAGE_PATH, sanitized_filename)
     logger.debug('Full path of image: %s', full_path_filename)
     if os.path.isfile(full_path_filename):
         logger.info('Image found: %s', sanitized_filename)
@@ -246,7 +246,7 @@ def get_images(credentials: Annotated[HTTPBasicCredentials, Depends(security)], 
     if not crud.validate_user(db, credentials.username, credentials.password, role='user'):
         logger.warning('Unauthorized')
         raise HTTPException(status_code=401, detail="Unauthorized")
-    files = get_filelist(image_path)
+    files = get_filelist(IMAGE_PATH)
     response_json = []
     for filename in files:
         file_json = {'filename': filename}

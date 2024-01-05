@@ -5,20 +5,34 @@ The test cases cover various functionalities such as creating a user, getting al
 reading a user, creating a device for a user, getting all devices, getting an image,
 and getting all images.
 """
+import logging
 from fastapi.testclient import TestClient
 from main import app
+from unittest.mock import patch
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+
+# Create a temporary in-memory SQLite database for testing
+engine = create_engine("sqlite:///:memory:")
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+logger = logging.getLogger(__name__)
+# Patch the database connection in the main module to use the temporary database
 
 client = TestClient(app)
 
 
-def test_create_user():
+@patch("main.get_db", return_value=SessionLocal())
+def test_create_user(main):
     """
     Test case for creating a user.
     """
     user_data = {
         "name": "John Doe",
         "email": "johndoe@example.com",
-        "password": "password123"
+        "password": "password123",
+        "role": "user"
     }
     response = client.post("/users/", json=user_data)
     assert response.status_code == 200
