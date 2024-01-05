@@ -67,8 +67,6 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
 
-import bcrypt
-
 def get_hashed_password(plain_text_password):
     """
     Hashes a password using bcrypt.
@@ -82,8 +80,6 @@ def get_hashed_password(plain_text_password):
     """
     return bcrypt.hashpw(plain_text_password.encode('utf-8'), bcrypt.gensalt())
 
-
-import bcrypt
 
 def check_password(plain_text_password, hashed_password):
     """
@@ -131,7 +127,8 @@ def create_user(db: Session, user: schemas.UserCreate):
     - User: The created user object.
     """
     hashed_password = get_hashed_password(user.password)
-    db_user = models.User(email=user.email, name=user.name, hashed_password=hashed_password, role=user.role)
+    db_user = models.User(email=user.email, name=user.name,
+                          hashed_password=hashed_password, role=user.role)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
