@@ -129,8 +129,7 @@ def read_user(credentials: Annotated[HTTPBasicCredentials, Depends(security)], u
         logger.warning('Unauthorized')
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-
-@app.post("/users/{user_id}/devices/", response_model=schemas.Device)
+@app.post("/users/{user_id}/devices", response_model=schemas.User)
 def create_device_for_user(
         credentials: Annotated[HTTPBasicCredentials, Depends(security)], user_id: int,
         device: schemas.DeviceCreate, db: Session = Depends(get_db)
@@ -148,13 +147,27 @@ def create_device_for_user(
         schemas.Device: The created device.
     """
     logger.info('Creating device for user')
-    if not crud.validate_user(db, credentials.username, credentials.password, role='user'):
+    db_user_id = crud.get_user(db, user_id=user_id)
+    db_user_name = crud.get_user_by_name(db, name=credentials.username)
+
+    if crud.validate_user(db, credentials.username, credentials.password, role='admin'):
+        logger.info('Device created successfully')
+        return crud.create_user_device(db=db, device=device, user_id=user_id)
+    elif crud.validate_user(db, credentials.username, credentials.password, role='user'):
+        if db_user_id is None or db_user_name is None:
+            logger.warning('Unauthorized')
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        elif db_user_name.id == db_user_id.id:
+            logger.info('Device created successfully')
+            return crud.create_user_device(db=db, device=device, user_id=user_id)
+        else:
+            logger.warning('Unauthorized')
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
         logger.warning('Unauthorized')
         raise HTTPException(status_code=401, detail="Unauthorized")
-    logger.info('Device created successfully')
-    return crud.create_user_device(db=db, device=device, user_id=user_id)
-
-
+    
+ 
 @app.get("/devices/", response_model=list[schemas.Device])
 def read_devices(credentials: Annotated[HTTPBasicCredentials, Depends(security)],
                  skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):

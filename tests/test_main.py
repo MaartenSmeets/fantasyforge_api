@@ -92,7 +92,14 @@ def test_get_users():
     """
     Test case for getting all users.
     """
-    response = client.get("/users/", auth=("Jane Doe", "password123"))
+    user_data = {
+        "name": "Johnny Doe",
+        "email": "johnnydoe@example.com",
+        "password": "password123",
+        "role": "admin"
+    }
+    response = client.post("/users/", json=user_data)
+    response = client.get("/users/", auth=("Johnny Doe", "password123"))
     assert response.status_code == 200
     assert len(response.json()) > 0
 
@@ -118,14 +125,21 @@ def test_create_device_for_user():
     """
     Test case for creating a device for a user.
     """
-    device_data = {
-        "name": "iPhone",
-        "model": "12 Pro"
+    user_data = {
+        "name": "Joshua Doe",
+        "email": "joshuadoe@example.com",
+        "password": "password123",
+        "role": "user"
     }
-    response = client.post("/users/1/devices/", json=device_data)
+    response = client.post("/users/", json=user_data)
+    user_id = response.json()["id"]
+
+    device_data = {
+        "description": "12 Pro"
+    }
+    response = client.post("/users/"+str(user_id)+"/devices/", json=device_data, auth=("Joshua Doe", "password123"))
     assert response.status_code == 200
-    assert response.json()["name"] == "iPhone"
-    assert response.json()["model"] == "12 Pro"
+    assert response.json()["description"] == "12 Pro"
 
 
 def test_read_devices():
