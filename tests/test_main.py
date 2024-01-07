@@ -1,30 +1,48 @@
 """
-This module contains test cases for the main.py module of the Fantasy Forge API.
-
-The test cases cover various functionalities such as creating a user, getting all users,
-reading a user, creating a device for a user, getting all devices, getting an image,
-and getting all images.
+This module contains unit tests for the main module of the Fantasy Forge API.
 """
+
 import logging
 from fastapi.testclient import TestClient
-from main import app
-from unittest.mock import patch
 from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from main import app, get_db
+from database import Base
 
 # Create a temporary in-memory SQLite database for testing
-engine = create_engine("sqlite:///:memory:")
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-logger = logging.getLogger(__name__)
-# Patch the database connection in the main module to use the temporary database
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base.metadata.create_all(bind=engine)
+logger = logging.getLogger(__name__)
+
+
+# Patch the database connection in the main module to use the temporary database
+def override_get_db():
+    """
+    Override the get_db function to provide a session for testing purposes.
+
+    Returns:
+        SessionLocal: The session object for database operations.
+    """
+    try:
+        db = SessionLocal()
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
-
-@patch("main.get_db", return_value=SessionLocal())
-def test_create_user(main):
+def test_create_user():
     """
     Test case for creating a user.
     """
