@@ -58,11 +58,41 @@ def test_create_user():
     assert response.json()["email"] == "johndoe@example.com"
 
 
+def test_create_admin_user():
+    """
+    Test case for creating an admin user.
+    """
+    user_data = {
+        "name": "Jane Doe",
+        "email": "janedoe@example.com",
+        "password": "password123",
+        "role": "admin"
+    }
+    response = client.post("/users/", json=user_data)
+    assert response.status_code == 200
+    assert response.json()["name"] == "Jane Doe"
+    assert response.json()["email"] == "janedoe@example.com"
+
+
+def test_create_user_already_exists():
+    """
+    Test case for creating a user which already exists.
+    """
+    user_data = {
+        "name": "John Doe",
+        "email": "johndoe@example.com",
+        "password": "password123",
+        "role": "user"
+    }
+    response = client.post("/users/", json=user_data)
+    assert response.status_code == 400
+
+
 def test_get_users():
     """
     Test case for getting all users.
     """
-    response = client.get("/users/")
+    response = client.get("/users/", auth=("Jane Doe", "password123"))
     assert response.status_code == 200
     assert len(response.json()) > 0
 
@@ -71,9 +101,17 @@ def test_read_user():
     """
     Test case for reading a user.
     """
-    response = client.get("/users/1")
+    user_data = {
+        "name": "Jack Doe",
+        "email": "jackdoe@example.com",
+        "password": "password123",
+        "role": "user"
+    }
+    response = client.post("/users/", json=user_data)
+    user_id = response.json()["id"]
+    response = client.get("/users/"+str(user_id), auth=("Jack Doe", "password123"))
     assert response.status_code == 200
-    assert response.json()["id"] == 1
+    assert response.json()["id"] == user_id
 
 
 def test_create_device_for_user():
