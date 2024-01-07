@@ -74,7 +74,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 def get_users(credentials: Annotated[HTTPBasicCredentials, Depends(security)], skip: int = 0, limit: int = 100,
               db: Session = Depends(get_db)):
     """
-    Read a list of users.
+    Read a list of users
 
     Args:
         credentials (Annotated[HTTPBasicCredentials, Depends(security)]): The HTTP basic credentials.
