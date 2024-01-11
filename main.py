@@ -129,7 +129,7 @@ def read_user(credentials: Annotated[HTTPBasicCredentials, Depends(security)], u
         logger.warning('Unauthorized')
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-@app.post("/users/{user_id}/devices", response_model=schemas.User)
+@app.post("/users/{user_id}/devices", response_model=schemas.Device)
 def create_device_for_user(
         credentials: Annotated[HTTPBasicCredentials, Depends(security)], user_id: int,
         device: schemas.DeviceCreate, db: Session = Depends(get_db)
@@ -168,14 +168,15 @@ def create_device_for_user(
         raise HTTPException(status_code=401, detail="Unauthorized")
     
  
-@app.get("/devices/", response_model=list[schemas.Device])
-def read_devices(credentials: Annotated[HTTPBasicCredentials, Depends(security)],
-                 skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+@app.get("/users/{user_id}/devices", response_model=list[schemas.Device])
+def read_devices(credentials: Annotated[HTTPBasicCredentials, Depends(security)], user_id: int, skip: int = 0,
+                 limit: int = 100, db: Session = Depends(get_db)):
     """
-    Read a list of devices.
+    Read a list of devices for a user.
 
     Args:
         credentials (Annotated[HTTPBasicCredentials, Depends(security)]): The HTTP basic credentials.
+        user_id (int): The ID of the user.
         skip (int, optional): Number of devices to skip. Defaults to 0.
         limit (int, optional): Maximum number of devices to retrieve. Defaults to 100.
         db (Session, optional): The database session. Defaults to Depends(get_db).
@@ -183,13 +184,30 @@ def read_devices(credentials: Annotated[HTTPBasicCredentials, Depends(security)]
     Returns:
         list[schemas.Device]: The list of devices.
     """
-    logger.info('Reading list of devices')
+    logger.info('Reading devices for user')
+    db_user_id = crud.get_user(db, user_id=user_id)
+    db_user_name = crud.get_user_by_name(db, name=credentials.username)
+
     if crud.validate_user(db, credentials.username, credentials.password, role='admin'):
-        items = crud.get_devices(db, skip=skip, limit=limit)
-        logger.info('Devices read successfully')
-        return items
-    logger.warning('Unauthorized')
-    raise HTTPException(status_code=401, detail="Unauthorized")
+        if db_user_id is None:
+            logger.warning('User not found')
+            raise HTTPException(status_code=404, detail="User not found")
+        logger.info('Devices retrieved successfully')
+        return crud.get_user_devices(db, user_id=user_id, skip=skip, limit=limit)
+    elif crud.validate_user(db, credentials.username, credentials.password, role='user'):
+        if db_user_id is None or db_user_name is None:
+            logger.warning('Unauthorized')
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        elif db_user_name.id == db_user_id.id:
+            logger.info('Devices retrieved successfully')
+            return crud.get_user_devices(db, user_id=user_id, skip=skip, limit=limit)
+        else:
+            logger.warning('Unauthorized')
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        logger.warning('Unauthorized')
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
 
 
 @app.get("/image/{image_filename}")

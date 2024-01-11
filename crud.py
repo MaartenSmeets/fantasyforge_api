@@ -135,19 +135,20 @@ def create_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 
-def get_devices(db: Session, skip: int = 0, limit: int = 100):
+def get_user_devices(db: Session, user_id: int, skip: int = 0, limit: int = 100):
     """
     Retrieve a list of devices from the database.
 
     Args:
         db (Session): The database session.
+        user_id (int): The ID of the user.
         skip (int, optional): Number of devices to skip. Defaults to 0.
         limit (int, optional): Maximum number of devices to retrieve. Defaults to 100.
 
     Returns:
         List[Device]: A list of devices.
     """
-    return db.query(models.Device).offset(skip).limit(limit).all()
+    return db.query(models.Device).filter(models.Device.owner_id == user_id).offset(skip).limit(limit).all()
 
 
 def create_user_device(db: Session, device: schemas.DeviceCreate, user_id: int):

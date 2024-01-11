@@ -138,8 +138,10 @@ def test_create_device_for_user():
         "description": "12 Pro"
     }
     response = client.post("/users/"+str(user_id)+"/devices/", json=device_data, auth=("Joshua Doe", "password123"))
+    
     assert response.status_code == 200
-    assert response.json()["description"] == "12 Pro"
+    assert "devices" in response.json()
+    assert any(device["description"] == "12 Pro" for device in response.json()["devices"])
 
 
 def test_read_devices():
